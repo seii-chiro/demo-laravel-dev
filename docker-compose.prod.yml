@@ -1,0 +1,30 @@
+services:
+  app:
+    image: docker-laravel-dev-app:prod
+    build:
+      target: app
+    env_file:
+      - .env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: http://localhost:9081
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-docker_laravel_dev}
+      DB_USERNAME: ${DB_USERNAME:-laravel}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+    depends_on:
+      - db
+
+  nginx:
+    image: docker-laravel-dev-nginx:prod
+    build:
+      target: nginx
+    ports:
+      - "9081:80"
+
+  db:
+    ports:
+      - "5449:5432"

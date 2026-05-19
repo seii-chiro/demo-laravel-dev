@@ -1,0 +1,35 @@
+services:
+  app:
+    image: docker-laravel-dev-app:dev
+    build:
+      target: dev
+    env_file:
+      - .env
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_URL: http://localhost:9080
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: ${DB_DATABASE:-docker_laravel_dev}
+      DB_USERNAME: ${DB_USERNAME:-laravel}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - .:/var/www/html
+      - laravel_vendor:/var/www/html/vendor
+    depends_on:
+      - db
+
+  nginx:
+    image: docker-laravel-dev-nginx:dev
+    build:
+      target: nginx
+    ports:
+      - "9080:80"
+    volumes:
+      - .:/var/www/html:ro
+
+  db:
+    ports:
+      - "5448:5432"
