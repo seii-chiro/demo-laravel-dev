@@ -1,19 +1,36 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Docker Laravel Dev
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+This project demonstrates a Dockerized Laravel API with separate development and production-like workflows.
 
-## Docker API Setup
+The setup mirrors the `docker-react-dev` pattern:
+
+- `Dockerfile` contains multiple build targets.
+- `docker-compose.yml` defines shared services.
+- `docker-compose.dev.yml` runs a bind-mounted development stack.
+- `docker-compose.prod.yml` runs production-style images without source bind mounts.
+
+## Services
+
+- `app`: PHP-FPM Laravel application.
+- `nginx`: Public HTTP entry point.
+- `db`: PostgreSQL database.
+
+## Ports
+
+| Stack | App URL | PostgreSQL |
+| --- | --- | --- |
+| Development | `http://localhost:9080` | `localhost:5448` |
+| Production-like | `http://localhost:9081` | `localhost:5449` |
+
+## Development
 
 Start the development stack:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
+
+The development stack bind-mounts the project into the `app` and `nginx` containers, so PHP source changes are picked up without rebuilding the image.
 
 Initialize Laravel once:
 
@@ -28,60 +45,93 @@ Smoke test the API:
 curl http://localhost:9080/api/health
 ```
 
-Run a production-like stack:
+Run tests in the app container:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec app php artisan test
+```
+
+Stop the stack:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+```
+
+Remove the database volume too:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
+```
+
+## Production-Like Build
+
+Build and start the production-like stack:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
 ```
 
-The development stack exposes Laravel through Nginx at `http://localhost:9080` and PostgreSQL at `localhost:5448`. The production-like stack exposes Laravel at `http://localhost:9081`.
+This uses the production `app` target, installs Composer dependencies without dev packages, builds frontend assets, and serves through the nginx image target.
 
-## About Laravel
-
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
-
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Smoke test:
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+curl http://localhost:9081/api/health
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Stop the stack:
 
-## Contributing
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Dockerfile Targets
 
-## Code of Conduct
+- `vendor`: Installs production Composer dependencies.
+- `assets`: Builds Vite assets.
+- `dev`: PHP-FPM image with Composer dev dependencies.
+- `app`: Production PHP-FPM image with optimized dependencies.
+- `nginx`: Nginx image with Laravel public assets and config.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Useful Commands
 
-## Security Vulnerabilities
+Rebuild only the app image:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml build app
+```
 
-## License
+Run an Artisan command:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec app php artisan route:list
+```
+
+Open a shell in the app container:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec app sh
+```
+
+View logs:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f app nginx db
+```
+
+Reset the development database:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec app php artisan migrate:fresh
+```
+
+## API Endpoints
+
+- `GET /`: Basic JSON app status.
+- `GET /api/health`: API health check.
+
+## Notes
+
+- This is an API-first Laravel setup, so there is no Dockerized Vite HMR service.
+- PostgreSQL data is stored in the `laravel_pgdata` Docker volume.
+- Composer dependencies inside the development container are stored in the `laravel_vendor` Docker volume so the host bind mount does not hide container-installed packages.
